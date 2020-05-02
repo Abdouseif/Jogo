@@ -1,0 +1,4 @@
+//The end or not 0/1  
+// score if the end
+B 20
+W 10
