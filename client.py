@@ -13,23 +13,26 @@ class States(Enum):
     IDLE = 3
     THINK = 4
     
-class Game:
+class GameServer:
     def __init__(self):
         self.State = States.INIT    
         self.GameConfig = None
         self.PlayerColor = None # "B" / "W"
         self.Socket = None
         self.Name = None
-        self.oppmove=None
+        self.oppmove=[0,0]
         self.LastOppMove = None  # move--> type,point --> ['row'], ['column']
         self.RemainTime  =  None
         self.score = None   # score["B"]
+        self.validmove=True
         # Additonal Information
         self.Winner = None
         self.board = None  
         self.endgame=None
     def GetGameConfig(self):
         return self.GameConfig
+    def getOppMove(self, i):
+        return self.oppmove[i]
     def UpdateScoreAndTime(self,Msg):
         self.RemainTime = {
                                     "B": Msg['players']['B']['remainingTime'] ,
@@ -39,12 +42,11 @@ class Game:
                             "B": Msg['players']['B']['score'],
                             "W": Msg['players']['W']['score'] 
         }
-        
-GameInfo = Game()
 
-async def ReadyState():
+
+async def ReadyState(GameInfo):
     print("I am Ready!")
-    global GameInfo
+
     
     response = await GameInfo.Socket.recv()
     response = json.loads(response)
@@ -59,6 +61,7 @@ async def ReadyState():
         print(GameInfo.GameConfig['moveLog'])
         MoveLog = GameInfo.GameConfig['moveLog']
         # print(GameInfo.PlayerColor == GameInfo.GameConfig['initialState']['turn'])
+        print( ( (GameInfo.PlayerColor == GameInfo.GameConfig['initialState']['turn'] and len(MoveLog) % 2 == 0) or (GameInfo.PlayerColor != GameInfo.GameConfig['initialState']['turn'] and len(MoveLog) % 2 != 0)))
         if ( (GameInfo.PlayerColor == GameInfo.GameConfig['initialState']['turn'] and len(MoveLog) % 2 == 0) or (GameInfo.PlayerColor != GameInfo.GameConfig['initialState']['turn'] and len(MoveLog) % 2 != 0)) :
             GameInfo.State = States.THINK
         else:
@@ -73,8 +76,8 @@ async def ReadyState():
         print("Nothing")
             
     pass
-async def IdleState():
-    global GameInfo
+async def IdleState(GameInfo):
+
     print("Idle")
     
     Msg = await GameInfo.Socket.recv() 
@@ -83,7 +86,7 @@ async def IdleState():
     if Msg['type'] == "MOVE" :
         GameInfo.State = States.THINK
         GameInfo.LastOppMove = Msg['move']
-        GameInfo.recmov()
+        recmov(GameInfo)
         GameInfo.RemainTime = Msg['remainingTime']  
         
     elif Msg['type'] == 'END' :
@@ -91,16 +94,14 @@ async def IdleState():
         GameInfo.endgame=True
         GameInfo.UpdateScoreAndTime(Msg)
     
+    
     pass
-def recmov():
-    if LastOppMove['type']=="pass":
-        oppmove=[-1,-1]
-    else:
-        oppmove=[LastOppMove['point']['row'],LastOppMove['point']['column']]
 
-def MakeMove(x,y,typ):
-    global GameInfo
 
+def MakeMove(GameInfo, x,y,typ):
+
+    print("row: ", x)
+    print("column: ", y)
     if typ==1:
         PlaceMove = {'type' : 'pass'} 
     else:
@@ -144,8 +145,8 @@ def MakeMove(x,y,typ):
     return PlaceMove
     
 
-async def ThinkState(x,y):
-    global GameInfo
+async def ThinkState(GameInfo, x,y, typ):
+
     print("Thinking")
     # while 1:
     #     print('x')
@@ -156,7 +157,7 @@ async def ThinkState(x,y):
         # x =  input('Enter move')
         MsgToSend = {
                         'type': 'MOVE',
-                        'move': MakeMove(x,y)
+                        'move': MakeMove(GameInfo, x,y, typ)
                     }
         
         print(MsgToSend)
@@ -168,23 +169,31 @@ async def ThinkState(x,y):
         
         if Msg['type'] == 'END':
             GameInfo.State = States.READY
+            GameInfo.endgame=True
             GameInfo.UpdateScoreAndTime(Msg)
             return
         elif Msg['type'] == "VALID":
             GameInfo.State = States.IDLE
+            GameInfo.validmove=True
             GameInfo.RemainTime = Msg['remainingTime']
             return
+        elif Msg['type'] == "INVALID":
+            GameInfo.State = States.THINK
+            GameInfo.validmove=False            
+            GameInfo.RemainTime = Msg['remainingTime']
+            return
+        
         GameInfo.RemainTime = Msg['remainingTime']
     
     pass
 
 
-async def InitState(name):
-    
-    global GameInfo
+async def InitState(GameInfo, name):
+    print("Connecting to Socket")
     GameInfo.Socket = await websockets.connect('ws://localhost:8080',ping_interval=100) 
     print("let's start!")
-    t2 = threading.Thread(target=ping_pong_handler).start()  # ping pong
+    t2 = threading.Thread(target=ping_pong_handler, args=[GameInfo]) # ping pong
+    t2.start()
     
     response = await GameInfo.Socket.recv()
     # asyncio.get_event_loop().run_until_complete(Pong())
@@ -193,8 +202,7 @@ async def InitState(name):
     x = await GameInfo.Socket.send(json.dumps({'type': 'NAME', 'name': str(name)}))   
     GameInfo.State = States.READY
     
-async def ping_pong():
-    global GameInfo
+async def ping_pong(GameInfo):
     print("Ping")
     while True:
         try:
@@ -204,27 +212,16 @@ async def ping_pong():
             print(e)
             return
 
-def ping_pong_handler():
-    asyncio.new_event_loop().run_until_complete(ping_pong())
+def recmov(GameInfo):
+    if GameInfo.LastOppMove['type']=="pass":
+        GameInfo.oppmove=[-1,-1]
+    elif GameInfo.LastOppMove['type']=="resign":
+        GameInfo.oppmove=[-2,-2]
+    else:
+        GameInfo.oppmove=[GameInfo.LastOppMove['point']['row'],GameInfo.LastOppMove['point']['column']]
 
-async def main(name):
-    global GameInfo
-    while(1):
-        # print(type(GameInfo.RemainTime))
-        # print(GameInfo.score)
-        try:
-            if GameInfo.State == States.INIT:
-                await InitState(name)
-            elif  GameInfo.State == States.READY:
-                await ReadyState()
-            elif  GameInfo.State == States.IDLE:
-                await IdleState()
-            elif  GameInfo.State == States.THINK:
-                await ThinkState()
-        except:
-            GameInfo.State = States.INIT
+def ping_pong_handler(GameInfo):
+    asyncio.new_event_loop().run_until_complete(ping_pong(GameInfo))
 
-if __name__ == "__main__":
-    name = sys.argv[1]
-    asyncio.get_event_loop().run_until_complete(main(name))
+
     

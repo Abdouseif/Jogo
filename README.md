@@ -1,3 +1,4 @@
+Go Game implementation based on Deepmind's AlphGozero!
 # Game Rules
  <br />
 The game is time-limited up to 30 minutes where each player’s timer starts with 15
@@ -41,5 +42,4 @@ get additional points called “Komi” added to his score which will be 6.5 in 
 scoring and territory calculation.  <br />
 13- A territory of a certain player is an area of empty points that is completely
 surrounded by the stones of that player only. Any empty area that touches stones of
-more than one color is not considered a territory. <br /># Jogo
-# Jogo
+more than one color is not considered a territory. <br />

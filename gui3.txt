@@ -1,7 +1,4 @@
-//Game mode 
-//player color
-//flag
-// opponent Play position
+0
 
 
 
