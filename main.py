@@ -31,5 +31,5 @@ iteration = 0
 while 1:
     iteration += 1
     print('ITERATION NUMBER ' + str(iteration))
-    _,  _, _ = playMatches(config.EPISODES, lg.logger_main, turns_until_tau0 = config.TURNS_UNTIL_TAU0)
+    _,  _, _ = playMatches(config.EPISODES)
     print('\n')
