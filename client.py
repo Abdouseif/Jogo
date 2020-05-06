@@ -29,6 +29,8 @@ class GameServer:
         self.Winner = None
         self.board = None  
         self.endgame=None
+        self.pause = False
+        self.winner = None
     def GetGameConfig(self):
         return self.GameConfig
     def getOppMove(self, i):
@@ -68,6 +70,8 @@ async def ReadyState(GameInfo):
             GameInfo.State = States.IDLE
         # print(GameInfo.PlayerColor)
     elif response['type'] == 'END':
+        GameInfo.pause = response['reason'] == 'pause'
+        GameInfo.winner = response['winner']
         print("End")
         GameInfo.UpdateScoreAndTime(response)
         GameInfo.endgame=True
@@ -90,12 +94,11 @@ async def IdleState(GameInfo):
         GameInfo.RemainTime = Msg['remainingTime']  
         
     elif Msg['type'] == 'END' :
+        GameInfo.pause = Msg['reason'] == 'pause'
+        GameInfo.winner = Msg['winner']
         GameInfo.State = States.READY
         GameInfo.endgame=True
         GameInfo.UpdateScoreAndTime(Msg)
-    
-    
-    pass
 
 
 def MakeMove(GameInfo, x,y,typ):
@@ -168,6 +171,8 @@ async def ThinkState(GameInfo, x,y, typ):
         print(Msg)
         
         if Msg['type'] == 'END':
+            GameInfo.pause = Msg['reason'] == 'pause'
+            GameInfo.winner = Msg['winner']
             GameInfo.State = States.READY
             GameInfo.endgame=True
             GameInfo.UpdateScoreAndTime(Msg)
@@ -190,17 +195,24 @@ async def ThinkState(GameInfo, x,y, typ):
 
 async def InitState(GameInfo, name):
     print("Connecting to Socket")
-    GameInfo.Socket = await websockets.connect('ws://localhost:8080',ping_interval=100) 
-    print("let's start!")
-    t2 = threading.Thread(target=ping_pong_handler, args=[GameInfo]) # ping pong
-    t2.start()
-    
-    response = await GameInfo.Socket.recv()
-    # asyncio.get_event_loop().run_until_complete(Pong())
-    print(response)
-    
-    x = await GameInfo.Socket.send(json.dumps({'type': 'NAME', 'name': str(name)}))   
-    GameInfo.State = States.READY
+    try:
+        GameInfo.Socket = await websockets.connect('ws://localhost:8080',ping_interval=100)
+        print("let's start!")
+        t2 = threading.Thread(target=ping_pong_handler, args=[GameInfo]) # ping pong
+        t2.start()
+        
+        response = await GameInfo.Socket.recv()
+        # asyncio.get_event_loop().run_until_complete(Pong())
+        print(response)
+        
+        x = await GameInfo.Socket.send(json.dumps({'type': 'NAME', 'name': str(name)}))   
+        GameInfo.State = States.READY
+        return True
+    except:
+        print("Connection Failed")
+        return False
+
+
     
 async def ping_pong(GameInfo):
     print("Ping")

@@ -3,6 +3,7 @@ import pygame
 from sys import exit
 import numpy as np
 import math
+import os
 from pygame.locals import *
 BOARD_SIZE = (820, 820)
 SCREEN_SIZE = (1200,820)
@@ -10,11 +11,12 @@ WHITE = (220, 220, 220)
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0) 
 BLUE = (0, 0, 128)
-RED=(255,0,0)
+RED=(128,128,128)
 #BGC=(220,220,220)
 BGC=(255,255,255)
 whiteScorePos=[1105,100]
 blackScorePos=[915,100]
+
 
 
 class Stone():
@@ -99,7 +101,7 @@ class Board():
         return textSurface, textSurface.get_rect()
 
     def message_display(self,text,point,color):
-        largeText = pygame.font.Font('freesansbold.ttf',32)
+        largeText = pygame.font.Font('FFF_Tusj.ttf',30)
         TextSurf, TextRect = self.text_objects(text, largeText,color)
         TextRect.center = (point[0],point[1])
         self.screen.blit(TextSurf, TextRect)
@@ -113,6 +115,21 @@ class Board():
         self.message_display(str(score[1]),[915,100],BLACK)
         pygame.display.update()
 
+
+    def updateFullScoreMsg(self,score, prisoners):
+        pygame.draw.rect(self.screen, BGC,(820,0,1200,500))
+        self.message_display("SCORE",[1010,20],RED)
+        self.message_display("BLACK",[915,60],BLACK)
+        self.message_display("WHITE",[1105,60],WHITE)
+        self.message_display(str(score[0]),[1105,100],WHITE)
+        self.message_display(str(score[1]),[915,100],BLACK)
+        self.message_display("PRISONERS",[1010,140],RED)
+        self.message_display(str(prisoners[0]),[1105,180],WHITE)
+        self.message_display(str(prisoners[1]),[915,180],BLACK)
+
+        pygame.display.update()
+
+
     def updateMsg(self,turnmsg,statusmsg,color):
         pygame.draw.rect(self.screen, BGC,(820,500,1200,820))
         self.message_display(statusmsg,[1010,640],color)
@@ -120,14 +137,15 @@ class Board():
         pygame.display.update()
     
     def startmenu(self,startbg,aibg,brain):
-         self.screen.blit(startbg, (910, 200))
+         pygame.draw.rect(self.screen, BGC,(820,0,1200,820))
+         self.screen.blit(startbg, (910, 500))
          self.screen.blit(aibg, (865, 50))
          self.screen.blit(brain, (1048, 50))
          pygame.display.update()
 
-    def getUserAction(self,passbg,usercolor):
-        pygame.draw.rect(self.screen, BGC,(820,0,1200,500))
-        self.screen.blit(passbg, (910, 200))
+    def getUserAction(self,passbg,usercolor, home):
+        self.screen.blit(passbg, (910, 300))
+        self.screen.blit(home, (960, 700))
         pygame.display.update()
         while(True):
             #guiboard.updateMsg("","Its Your Turn",RED)
@@ -142,12 +160,13 @@ class Board():
                             x=x-1
                             y=y-1
                             action=y*19+x
+                            print("User action = ", action)
                             pygame.draw.rect(self.screen, BGC,(820,0,1200,500))
                             return action
                         else:
                             x = event.pos[0]
                             y = event.pos[1]
-                            if x>910 and x<1096 and y>200 and y<378:
+                            if x>910 and x<1096 and y>300 and y<478:
                                 if usercolor=="BLACK":
                                     action=361
                                     pygame.draw.rect(self.screen, BGC,(820,0,1200,500))
@@ -156,6 +175,9 @@ class Board():
                                     action=362
                                     pygame.draw.rect(self.screen, BGC,(820,0,1200,500))
                                     return action
+                            elif x>960 and x<1060 and y>700 and y<800:
+                                return -1
+
 
 
 
